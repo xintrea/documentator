@@ -10,8 +10,15 @@ $extractDir='./extract';
 // данный каталог может совпадать с $docDir
 $finishDir=$docDir;
 
-// Наименование бинарника tesseract, можно с полным путем
+// Наименование бинарника программы tesseract, можно с полным путем
 $tesseractBin='tesseract';
+
+// Наименование бинарника программы convert, можно с полным путем
+$convertBin='convert';
+
+
+include './lib/fileHelper.php';
+include './lib/pdfHelper.php';
 
 
 $documentator=new Documentator();
@@ -36,14 +43,14 @@ class Documentator
         $this->createExtractDir();
         
         // Список полных путей к файлам распознаваемых документов
-        $files=$this->getFiles();
+        $fileNames=$this->getFiles();
         
         // Рспознавание документов
-        foreach($files as $file)
+        foreach($fileNames as $fileName)
         {
-            echo 'Translate for '.$file."\n";
+            echo 'Translate for '.$fileName."\n";
             
-            $this->translate($file);
+            $this->translate($fileName);
             
             echo 'Done'."\n";
         }
@@ -52,16 +59,62 @@ class Documentator
     }
     
     
-    protected function translate()
+    protected function translate($fileName)
     {
         global $extractDir;
         
+        FileHelper::cleanDir($extractDir);
+        $this->extractDoc($fileName);
+        $this->ocrDocText($fileName);
+        
+        exit(0);
+    }
+
+
+    protected function extractDoc($fileName)
+    {
+        switch ( pathinfo( $fileName, PATHINFO_EXTENSION ) ) 
+        {
+            case 'pdf':
+                $this->extractDocPdf($fileName);
+                break;
+            case 'fb2':
+                $this->extractDocFb2($fileName);
+                break;
+            default:
+                echo 'Incorrect file extention for '.$fileName;
+                exit(1);
+        }
+    }
+    
+
+    // Разворачивание PDF-файла на отдельные файлы картинок
+    protected function extractDocPdf($fileName)
+    {
+        global $extractDir, $convertBin;
+    
+        // $pagesCount=PdfHelper::getPagesCount($fileName);
+        
+        system('cd "'.$extractDir.'" ; '.$convertBin.' -density 196 "'.$fileName.'" -trim +repage -bordercolor white -border 10 page.png');
+    }
+
+    
+    // Разворачивание из FB2-файла файлов иллюстраций
+    protected function extractDocFb2($fileName)
+    {
+    
+    }
+
+    
+    protected function ocrDocText($fileName)
+    {
+
     }
 
     
     protected function getSupportFormats()
     {
-        return array('pdf', 'fb2');
+        return array('pdf'); // array('pdf', 'fb2');
     }
 
 
@@ -81,11 +134,11 @@ class Documentator
             
             if( !in_array( pathinfo( $fileName, PATHINFO_EXTENSION ), $this->getSupportFormats() ) )
             {
-                echo 'Unavailavle file extention. '.$fileName."\n";
+                echo 'Unavailable file extention. '.$fileName."\n";
                 continue;
             }
 
-            $result[]=$fileName;
+            $result[]=realpath( $fileName );
         }
         
         return $result;
